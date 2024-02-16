@@ -1,3 +1,5 @@
+// 2
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -340,10 +342,7 @@ void loadPersonImageMiddleware(
   }
   next(action);
 }
-
-
-
-
+// 2
 
 /* 1 StoreConnector
 import 'package:flutter/material.dart';
