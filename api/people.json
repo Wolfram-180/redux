@@ -2,16 +2,19 @@
     {
         "id": 1,
         "name": "John Doe",
-        "age": 20
+        "age": 20,
+        "image_url": "https://sdprompts.org/lib/pics/_sfw/00000-3820111406.jpg"
     },
     {
         "id": 2,
-        "name": "Jane Doe",
-        "age": 25
+        "name": "Jane Boo",
+        "age": 25,
+        "image_url": "https://sdprompts.org/lib/pics/_sfw/00000-4085935537.jpg"
     },
     {
         "id": 3,
-        "name": "Jim Doe",
-        "age": 30
+        "name": "Jim Foo",
+        "age": 30,
+        "image_url": "https://sdprompts.org/lib/pics/_sfw/00001-2427684228.jpg"
     }
 ]

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:redux/redux.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -66,7 +67,9 @@ class HomePage extends StatelessWidget {
                         final person = people.elementAt(index);
                         return ListTile(
                           title: Text(person.name),
-                          subtitle: Text(person.age.toString()),
+                          subtitle: Text(
+                            person.age.toString(),
+                          ),
                         );
                       },
                     ),
@@ -87,24 +90,42 @@ const apiUrl = 'http://127.0.0.1:5500/api/people.json';
 
 @immutable
 class Person {
+  final String id;
   final String name;
   final int age;
+  final String imageUrl;
+  final Uint8List? imageData;
+  final bool isLoading;
+
+  Person copiedWith({
+    bool? isLoading,
+    Uint8List? imageData,
+  }) =>
+      Person(
+        id: id,
+        name: name,
+        age: age,
+        imageUrl: imageUrl,
+        imageData: imageData ?? this.imageData,
+        isLoading: isLoading ?? this.isLoading,
+      );
 
   const Person({
     required this.name,
     required this.age,
+    required this.id,
+    required this.imageUrl,
+    required this.imageData,
+    required this.isLoading,
   });
 
   Person.fromJson(Map<String, dynamic> json)
-      : name = json['name'] as String,
-        age = json['age'] as int;
-
-  factory Person.fromJsonFactory(Map<String, dynamic> json) {
-    return Person(
-      name: json['name'],
-      age: json['age'],
-    );
-  }
+      : id = json['id'] as String,
+        name = json['name'] as String,
+        age = json['age'] as int,
+        imageUrl = json['imageUrl'] as String,
+        imageData = null,
+        isLoading = false;
 
   @override
   String toString() => 'Person name: $name, age: $age}';
