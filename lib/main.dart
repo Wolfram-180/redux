@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:redux/redux.dart';
 import 'package:flutter_redux/flutter_redux.dart';
 
@@ -28,6 +29,7 @@ class HomePage extends StatelessWidget {
       initialState: const State.empty(),
       middleware: [
         loadPeopleMiddleware,
+        loadPersonImageMiddleware,
       ],
     );
     return Scaffold(
@@ -57,7 +59,7 @@ class HomePage extends StatelessWidget {
               },
             ),
             StoreConnector<State, Iterable<Person>?>(
-              converter: (store) => store.state.fetchedPersons,
+              converter: (store) => store.state.sortedFetchedPersons,
               builder: (context, people) {
                 if (people != null) {
                   return Expanded(
@@ -65,11 +67,35 @@ class HomePage extends StatelessWidget {
                       itemCount: people.length,
                       itemBuilder: (context, index) {
                         final person = people.elementAt(index);
+                        final infoWidget = Text('${person.age} years old');
+
+                        final Widget subTitle = person.imageData == null
+                            ? infoWidget
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  infoWidget,
+                                  Image.memory(person.imageData!, height: 200),
+                                ],
+                              );
+
+                        final Widget trailing = person.isLoading
+                            ? const CircularProgressIndicator()
+                            : TextButton(
+                                onPressed: () {
+                                  store.dispatch(
+                                    LoadPersonImageAction(
+                                      personId: person.id,
+                                    ),
+                                  );
+                                },
+                                child: const Text('Load image'),
+                              );
+
                         return ListTile(
                           title: Text(person.name),
-                          subtitle: Text(
-                            person.age.toString(),
-                          ),
+                          subtitle: subTitle,
+                          trailing: trailing,
                         );
                       },
                     ),
@@ -97,10 +123,10 @@ class Person {
   final Uint8List? imageData;
   final bool isLoading;
 
-  Person copiedWith({
+  Person copiedWith(
     bool? isLoading,
     Uint8List? imageData,
-  }) =>
+  ) =>
       Person(
         id: id,
         name: name,
@@ -120,15 +146,15 @@ class Person {
   });
 
   Person.fromJson(Map<String, dynamic> json)
-      : id = json['id'] as String,
-        name = json['name'] as String,
+      : id = json['id'].toString(),
+        name = json['name'].toString(),
         age = json['age'] as int,
-        imageUrl = json['imageUrl'] as String,
+        imageUrl = json['image_url'].toString(),
         imageData = null,
         isLoading = false;
 
   @override
-  String toString() => 'Person name: $name, age: $age}';
+  String toString() => 'Person id = $id, name: $name, age: $age}';
 }
 
 Future<Iterable<Person>> getPersons() => HttpClient()
@@ -166,6 +192,13 @@ class State {
   final Iterable<Person>? fetchedPersons;
   final Object? error;
 
+  Iterable<Person>? get sortedFetchedPersons => fetchedPersons?.toList()
+    ?..sort(
+      (p1, p2) => int.parse(p1.id).compareTo(
+        int.parse(p2.id),
+      ),
+    );
+
   const State({
     required this.isLoading,
     required this.fetchedPersons,
@@ -178,8 +211,67 @@ class State {
         error = null;
 }
 
+@immutable
+class LoadPersonImageAction extends Action {
+  final String personId;
+
+  const LoadPersonImageAction({
+    required this.personId,
+  });
+}
+
+@immutable
+class SuccessfullyLoadedPersonImageAction extends Action {
+  final String personId;
+  final Uint8List imageData;
+
+  const SuccessfullyLoadedPersonImageAction({
+    required this.personId,
+    required this.imageData,
+  });
+}
+
 State reducer(State oldState, action) {
-  if (action is LoadPeopleAction) {
+  if (action is SuccessfullyLoadedPersonImageAction) {
+    final person = oldState.fetchedPersons?.firstWhere(
+      (person) => person.id == action.personId,
+    );
+    if (person != null) {
+      return State(
+        error: oldState.error,
+        isLoading: false,
+        fetchedPersons:
+            oldState.fetchedPersons?.where((p) => p.id != person.id).followedBy(
+          [
+            person.copiedWith(
+              false,
+              action.imageData,
+            ),
+          ],
+        ),
+      );
+    } else {
+      return oldState;
+    }
+  } else if (action is LoadPersonImageAction) {
+    final person = oldState.fetchedPersons?.firstWhere(
+      (person) => person.id == action.personId,
+    );
+    if (person != null) {
+      return State(
+        error: oldState.error,
+        isLoading: false,
+        fetchedPersons:
+            oldState.fetchedPersons?.where((p) => p.id != person.id).followedBy(
+          [
+            person.copiedWith(true, null),
+          ],
+        ),
+      );
+    } else {
+      return oldState;
+    }
+  } else if (action is LoadPeopleAction) {
     return const State(
       isLoading: true,
       fetchedPersons: null,
@@ -219,6 +311,37 @@ void loadPeopleMiddleware(
   }
   next(action);
 }
+
+void loadPersonImageMiddleware(
+  Store<State> store,
+  action,
+  NextDispatcher next,
+) {
+  if (action is LoadPersonImageAction) {
+    final person = store.state.fetchedPersons?.firstWhere(
+      (p) => p.id == action.personId,
+    );
+
+    if (person != null) {
+      final url = person.imageUrl;
+      final bundle = NetworkAssetBundle(Uri.parse(url));
+      bundle
+          .load(url)
+          .then((data) => data.buffer.asUint8List())
+          .then((imageData) {
+        store.dispatch(
+          SuccessfullyLoadedPersonImageAction(
+            personId: person.id,
+            imageData: imageData,
+          ),
+        );
+      });
+    }
+  }
+  next(action);
+}
+
+
 
 
 
