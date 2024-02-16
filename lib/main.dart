@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:redux/redux.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -23,9 +22,62 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final store = Store(
+      reducer,
+      initialState: const State.empty(),
+      middleware: [
+        loadPeopleMiddleware,
+      ],
+    );
     return Scaffold(
       appBar: AppBar(
         title: const Text('Home page'),
+      ),
+      body: StoreProvider(
+        store: store,
+        child: Column(
+          children: [
+            TextButton(
+              onPressed: () {
+                store.dispatch(
+                  const LoadPeopleAction(),
+                );
+              },
+              child: const Text('Load people'),
+            ),
+            StoreConnector<State, bool>(
+              converter: (store) => store.state.isLoading,
+              builder: (context, isLoading) {
+                if (isLoading) {
+                  return const CircularProgressIndicator();
+                } else {
+                  return const SizedBox();
+                }
+              },
+            ),
+            StoreConnector<State, Iterable<Person>?>(
+              converter: (store) => store.state.fetchedPersons,
+              builder: (context, people) {
+                if (people != null) {
+                  return Expanded(
+                    child: ListView.builder(
+                      itemCount: people.length,
+                      itemBuilder: (context, index) {
+                        final person = people.elementAt(index);
+                        return ListTile(
+                          title: Text(person.name),
+                          subtitle: Text(person.age.toString()),
+                        );
+                      },
+                    ),
+                  );
+                } else {
+                  return const SizedBox();
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -65,8 +117,91 @@ Future<Iterable<Person>> getPersons() => HttpClient()
     .then((jsonString) => json.decode(jsonString) as List<dynamic>)
     .then((jsonList) => jsonList.map((json) => Person.fromJson(json)));
 
+@immutable
+abstract class Action {
+  const Action();
+}
 
-/* StoreConnector
+@immutable
+class LoadPeopleAction extends Action {
+  const LoadPeopleAction();
+}
+
+@immutable
+class SuccesfullyFetchedPeopleAction extends Action {
+  final Iterable<Person> persons;
+  const SuccesfullyFetchedPeopleAction({required this.persons});
+}
+
+@immutable
+class FailedToFetchPeopleAction extends Action {
+  final Object error;
+  const FailedToFetchPeopleAction({required this.error});
+}
+
+@immutable
+class State {
+  final bool isLoading;
+  final Iterable<Person>? fetchedPersons;
+  final Object? error;
+
+  const State({
+    required this.isLoading,
+    required this.fetchedPersons,
+    required this.error,
+  });
+
+  const State.empty()
+      : isLoading = false,
+        fetchedPersons = null,
+        error = null;
+}
+
+State reducer(State oldState, action) {
+  if (action is LoadPeopleAction) {
+    return const State(
+      isLoading: true,
+      fetchedPersons: null,
+      error: null,
+    );
+  } else if (action is SuccesfullyFetchedPeopleAction) {
+    return State(
+      isLoading: false,
+      fetchedPersons: action.persons,
+      error: null,
+    );
+  } else if (action is FailedToFetchPeopleAction) {
+    return State(
+      isLoading: false,
+      fetchedPersons: oldState.fetchedPersons,
+      error: action.error,
+    );
+  } else {
+    return oldState;
+  }
+}
+
+void loadPeopleMiddleware(
+  Store<State> store,
+  action,
+  NextDispatcher next,
+) {
+  if (action is LoadPeopleAction) {
+    getPersons().then(
+      (persons) {
+        store.dispatch(SuccesfullyFetchedPeopleAction(persons: persons));
+      },
+      onError: (error) {
+        store.dispatch(FailedToFetchPeopleAction(error: error));
+      },
+    );
+  }
+  next(action);
+}
+
+
+
+/* 1 StoreConnector
 import 'package:flutter/material.dart';
 import 'package:redux/redux.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -274,4 +409,4 @@ State appStateReducer(State oldState, action) => State(
       items: itemsReducer(oldState.items, action),
       filter: itemFilterReducer(oldState, action),
     );
-*/
+1 */
