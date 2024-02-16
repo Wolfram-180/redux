@@ -1,3 +1,72 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:redux/redux.dart';
+import 'package:flutter_redux/flutter_redux.dart';
+
+void main() {
+  runApp(
+    MaterialApp(
+      title: 'Test app',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+      ),
+      home: const HomePage(),
+    ),
+  );
+}
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Home page'),
+      ),
+    );
+  }
+}
+
+const apiUrl = 'http://127.0.0.1:5500/api/people.json';
+
+@immutable
+class Person {
+  final String name;
+  final int age;
+
+  const Person({
+    required this.name,
+    required this.age,
+  });
+
+  Person.fromJson(Map<String, dynamic> json)
+      : name = json['name'] as String,
+        age = json['age'] as int;
+
+  factory Person.fromJsonFactory(Map<String, dynamic> json) {
+    return Person(
+      name: json['name'],
+      age: json['age'],
+    );
+  }
+
+  @override
+  String toString() => 'Person name: $name, age: $age}';
+}
+
+Future<Iterable<Person>> getPersons() => HttpClient()
+    .getUrl(Uri.parse(apiUrl))
+    .then((request) => request.close())
+    .then((response) => response.transform(utf8.decoder).join())
+    .then((jsonString) => json.decode(jsonString) as List<dynamic>)
+    .then((jsonList) => jsonList.map((json) => Person.fromJson(json)));
+
+
+/* StoreConnector
 import 'package:flutter/material.dart';
 import 'package:redux/redux.dart';
 import 'package:flutter_redux/flutter_redux.dart';
@@ -205,3 +274,4 @@ State appStateReducer(State oldState, action) => State(
       items: itemsReducer(oldState.items, action),
       filter: itemFilterReducer(oldState, action),
     );
+*/
